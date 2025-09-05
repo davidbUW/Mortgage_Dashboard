@@ -1,0 +1,218 @@
+<!-- _results.html: HTMX partial for results -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+  <!-- Metrics -->
+  <div class="card rounded-xl p-4">
+    <h3 class="font-bold mb-2">Key Metrics</h3>
+    <p class="muted text-sm">Monthly P&amp;I: ${{ metrics.monthly_pi|round(2) }}</p>
+    <p class="muted text-sm">First Month Total: ${{ metrics.first_month_total|round(2) }}</p>
+    <p class="muted text-sm">Total Interest: ${{ metrics.total_interest|round(0) }}</p>
+    <p class="muted text-sm">
+      Monthly PMI:
+      {% if pmi_first_month > 0 %}${{ '%.2f'|format(pmi_first_month) }}{% else %}<span class="muted">—</span>{% endif %}
+    </p>
+  </div>
+
+  <!-- Resale -->
+  {% if resale_enable and resale_info %}
+  <div class="card rounded-xl p-4">
+    <h3 class="font-bold mb-2">Resale Impact</h3>
+    <p class="muted text-sm">Resale Price: ${{ resale_info.resale_price|round(0) }}</p>
+    <p class="muted text-sm">Selling Costs: ${{ resale_info.selling_costs|round(0) }}</p>
+    <p class="muted text-sm">Net Proceeds: ${{ resale_info.net_proceeds|round(0) }}</p>
+    <p class="muted text-sm">Loan Balance at Sale: ${{ resale_info.balance|round(0) }}</p>
+    <p class="text-sm"><b>Net Equity Realized:</b> ${{ resale_info.equity|round(0) }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Refi -->
+  <div class="card rounded-xl p-4">
+    <h3 class="font-bold mb-2">Refi Analysis</h3>
+    {% if refi_info %}
+      <p class="muted text-xs">Starting on: {{ refi_start_date.strftime('%b %d, %Y') }}</p>
+      <p class="muted text-xs">Balance at start: ${{ refi_info.remaining_balance|round(0) }}</p>
+      <hr class="my-2" style="border-color: var(--border)">
+      <p class="text-sm">{{ refi_info.conclusion }}</p>
+      <p class="muted text-sm">Current Interest (remaining): ${{ refi_info.current_interest|round(0) }}</p>
+      <p class="muted text-sm">Refi Interest + Costs: ${{ refi_info.refi_interest|round(0) }}</p>
+      <p class="muted text-sm">Difference: ${{ refi_info.difference|round(0) }}</p>
+    {% else %}
+      <p class="muted text-sm">Refi disabled.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Chart Tabs -->
+<div class="card rounded-xl p-4 mb-6">
+  <div class="flex border-b" style="border-color: var(--border)">
+    <!-- Always show Payment -->
+    <button class="tab-btn px-4 py-2 font-medium border-b-2 tab-active"
+            style="border-color: var(--primary); color: var(--primary)"
+            data-target="tab-payment">Payment Breakdown</button>
+
+    {% if rent_buy_full %}
+    <button class="tab-btn px-4 py-2 muted"
+            data-target="tab-rentbuyfull">Rent vs Buy (Full)</button>
+    {% endif %}
+
+    {% if resale_enable and rent_buy %}
+    <button class="tab-btn px-4 py-2 muted"
+            data-target="tab-rentbuy">Rent vs Buy (Resale)</button>
+    {% endif %}
+
+    <button class="tab-btn px-4 py-2 muted"
+            data-target="tab-cumint">Cumulative Interest</button>
+  </div>
+
+  <!-- Tab content panes -->
+  <div id="tab-payment" class="tab-content block mt-4">
+    <canvas id="chartPayment" style="min-height: 400px;"></canvas>
+  </div>
+
+  {% if rent_buy_full %}
+  <div id="tab-rentbuyfull" class="tab-content hidden mt-4">
+    <canvas id="chartRentBuyFull" style="min-height: 400px;"></canvas>
+  </div>
+  {% endif %}
+
+  {% if resale_enable and rent_buy %}
+  <div id="tab-rentbuy" class="tab-content hidden mt-4">
+    <canvas id="chartRentBuy" style="min-height: 400px;"></canvas>
+  </div>
+  {% endif %}
+
+  <div id="tab-cumint" class="tab-content hidden mt-4">
+    <canvas id="chartCumInterest" style="min-height: 400px;"></canvas>
+  </div>
+</div>
+
+<script>
+  // Tab switching (uses CSS tokens so it looks good in all themes)
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('tab-active','font-semibold');
+        b.style.borderColor = 'transparent';
+        b.style.color = 'var(--text)';
+        b.classList.add('muted');
+      });
+      const target = document.getElementById(btn.dataset.target);
+      if (target) {
+        target.classList.remove('hidden');
+        btn.classList.add('tab-active','font-semibold');
+        const cs = getComputedStyle(document.documentElement);
+        const primary = cs.getPropertyValue('--primary');
+        btn.style.borderColor = primary;
+        btn.style.color = primary;
+        btn.classList.remove('muted');
+      }
+    });
+  });
+</script>
+
+<!-- Amortization -->
+<div class="card rounded-xl p-4">
+  <h3 class="font-bold mb-2">
+    Amortization — Rows/page: {{ page_size }} |
+    Page {{ page }} of {{ total_pages }} ({{ total_rows }} total)
+  </h3>
+
+  <!-- Pager controls -->
+  <div class="flex items-center gap-2 mb-3">
+    <!-- Prev -->
+    <button
+      class="btn"
+      hx-post="/results"
+      hx-target="#results"
+      hx-swap="innerHTML"
+      hx-include="#mortgage-form"
+      hx-vals='{"page": {{ [page-1,1]|max }} }'
+      {% if page <= 1 %}disabled{% endif %}
+    >&larr; Prev</button>
+
+    <!-- Next -->
+    <button
+      class="btn"
+      hx-post="/results"
+      hx-target="#results"
+      hx-swap="innerHTML"
+      hx-include="#mortgage-form"
+      hx-vals='{"page": {{ [page+1,total_pages]|min }} }'
+      {% if page >= total_pages %}disabled{% endif %}
+    >Next &rarr;</button>
+
+    <!-- Jump to page -->
+    <label class="ml-3 text-sm muted">Jump to:
+      <input type="number" min="1" max="{{ total_pages }}" value="{{ page }}"
+             class="btn w-24 mt-0"
+             oninput="this.closest('div').setAttribute('data-jump', this.value);">
+    </label>
+    <button
+      class="btn"
+      hx-post="/results"
+      hx-target="#results"
+      hx-swap="innerHTML"
+      hx-include="#mortgage-form"
+      hx-vals='{"page": (this.parentElement.getAttribute(' + "'data-jump'" + ')||{{ page }}) }'
+    >Go</button>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm" style="border-color: var(--border)">
+      <thead class="surface" style="border-bottom: 1px solid var(--border)">
+        <tr class="muted text-left">
+          <th class="px-2 py-2">Month</th>
+          <th class="px-2 py-2">Date</th>
+          <th class="px-2 py-2">P&amp;I</th>
+          <th class="px-2 py-2">Principal</th>
+          <th class="px-2 py-2">Interest</th>
+          <th class="px-2 py-2">Cumulative Interest</th>
+          <th class="px-2 py-2">Balance</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in amortization %}
+        <tr style="border-bottom: 1px solid var(--border)">
+          <td class="px-2 py-2">{{ r.month }}</td>
+          <td class="px-2 py-2">{{ r.date.strftime('%b %Y') }}</td>
+          <td class="px-2 py-2">${{ '%.2f'|format(r.pi) }}</td>
+          <td class="px-2 py-2">${{ '%.2f'|format(r.principal) }}</td>
+          <td class="px-2 py-2">${{ '%.2f'|format(r.interest) }}</td>
+          <td class="px-2 py-2">${{ '%.2f'|format(r.cumulative_interest) }}</td>
+          <td class="px-2 py-2">${{ '%.2f'|format(r.balance) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mt-4">
+    <button class="btn btn-primary"
+            form="mortgage-form" formaction="/pdf" formmethod="post" target="_blank">
+      Download Report (PDF)
+    </button>
+  </div>
+</div>
+
+<!-- Chart payload for charts.js -->
+<script type="application/json" id="charts-payload">
+{{ {
+  "payment": {
+    "pi": metrics.monthly_pi,
+    "taxes": taxes_monthly,
+    "ins": insurance_monthly,
+    "hoa": hoa_monthly,
+    "maint": (maintenance.values()|sum / 12.0)|round(2),
+    "pmi": pmi_first_month
+  },
+  "rentbuy": {
+    "rent": rent_buy.rent,
+    "buy": rent_buy.buy
+  },
+  "rentbuyFull": (rent_buy_full if (rent_buy_full is defined) else none),
+  "cuminterest": {
+    "months": amort_full|length,
+    "data": amort_full | map(attribute='cumulative_interest') | list
+  }
+} | tojson }}
+</script>
