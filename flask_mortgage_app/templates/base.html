@@ -1,16 +1,17 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="light" class="text-[16px] sm:text-[16px] md:text-[17px] lg:text-[18px]">
 <head>
   <meta charset="UTF-8" />
   <title>Mortgage Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  
-  <!-- Tailwind CDN -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="format-detection" content="telephone=no">
+
+  <!-- Tailwind CDN (must be non-deferred so classes compile immediately) -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- HTMX -->
-  <script src="https://unpkg.com/htmx.org@1.9.6"></script>
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- HTMX + Chart.js (defer to avoid blocking first paint) -->
+  <script defer src="https://unpkg.com/htmx.org@1.9.6"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
     /* THEME TOKENS */
@@ -48,12 +49,35 @@
       --input: #1e1e1e;
     }
 
+    /* Prevent horizontal scroll on mobile */
+    html, body { overflow-x: hidden; background: var(--bg); color: var(--text); }
+
+    /* Base tokens -> utilities */
+    .surface { background: var(--surface); }
+    .card { background: var(--card); border: 1px solid var(--border); }
+    .muted { color: var(--muted); }
+    .btn {
+      /* works with Tailwind CDN */
+      display: inline-flex; align-items: center; gap: .5rem;
+      border-radius: .75rem; padding: .5rem .75rem; font-size: .875rem; font-weight: 500;
+      transition: filter .15s ease;
+      background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    }
+    .btn:hover { filter: brightness(1.05); }
+    .btn-primary { background: var(--primary); color: #0b1220; border-color: transparent; }
+    .focus-ring:focus { outline: 3px solid var(--ring); outline-offset: 2px; }
+    .tab-active { border-color: var(--primary) !important; color: var(--primary) !important; }
+    .banner-hidden { display: none; }
+
     /* Tabs as pills */
     .tab-btn {
       background: var(--surface);
       color: var(--muted);
       border: 1px solid var(--border);
-      transition: background 0.2s, color 0.2s, border-color 0.2s;
+      transition: background .2s, color .2s, border-color .2s;
+      border-radius: .5rem;
+      padding: .25rem .75rem;
+      font-size: .875rem; font-weight: 600;
     }
     .tab-btn:hover { background: var(--card); color: var(--text); }
     .tab-btn[aria-selected="true"] {
@@ -62,58 +86,37 @@
       background: var(--card);
     }
 
-    /* Form controls (theme-aware) */
+    /* Form controls (theme-aware, finger-friendly) */
+    label { display: flex; flex-direction: column; gap: .25rem; font-size: .875rem; color: var(--muted); }
     input, select, textarea {
-      background: var(--input);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 0.5rem;
-      padding: 0.5rem;
-      display: block;
-      width: 100%;
-      box-sizing: border-box;
-      min-height: 2.5rem;
-      line-height: 1.25rem;
-      min-width: 0;
+      background: var(--input); color: var(--text);
+      border: 1px solid var(--border); border-radius: .75rem;
+      padding: .625rem .75rem; width: 100%; min-height: 2.75rem; line-height: 1.25rem; box-sizing: border-box; min-width: 0;
     }
-    input:focus, select:focus, textarea:focus {
-      outline: 2px solid var(--ring);
-      outline-offset: 2px;
-    }
+    input:focus, select:focus, textarea:focus { outline: 2px solid var(--ring); outline-offset: 2px; }
     input[type="range"] { padding: 0; min-height: auto; background: transparent; }
     input[type="checkbox"], input[type="radio"] { width: auto; min-height: auto; padding: 0; }
 
-    /* Base tokens -> utilities */
-    body { background: var(--bg); color: var(--text); }
-    .surface { background: var(--surface); }
-    .card { background: var(--card); border: 1px solid var(--border); }
-    .muted { color: var(--muted); }
-    .btn {
-      @apply inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--text);
-    }
-    .btn:hover { filter: brightness(1.05); }
-    .btn-primary { background: var(--primary); color: #0b1220; border-color: transparent; }
-    .focus-ring:focus { outline: 3px solid var(--ring); outline-offset: 2px; }
-    .tab-active { border-color: var(--primary) !important; color: var(--primary) !important; }
-    .banner-hidden { display: none; }
+    /* Chart container helper: lets Chart.js be truly responsive */
+    .chart-box { position: relative; height: 16rem; }
+    @media (min-width: 640px) { .chart-box { height: 20rem; } }
+    @media (min-width: 768px) { .chart-box { height: 24rem; } }
 
-    /* Label structure (prevents overlap) */
-    label {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-      font-size: 0.875rem;
-      color: var(--muted);
+    /* Wide content safety on phones (tables, code, etc.) */
+    .overflow-snap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    /* Sticky header backdrop */
+    .glass {
+      backdrop-filter: saturate(120%) blur(10px);
+      -webkit-backdrop-filter: saturate(120%) blur(10px);
+      background: color-mix(in oklab, var(--bg) 85%, transparent);
     }
   </style>
 </head>
 <body class="min-h-screen">
 
-  <!-- HEADER -->
-  <header class="surface border-b" style="border-color: var(--border);">
+  <!-- HEADER (now sticky + translucent) -->
+  <header class="surface border-b sticky top-0 z-50 glass" style="border-color: var(--border);">
     <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <div class="h-8 w-8 rounded-lg" style="background: var(--primary)"></div>
@@ -126,24 +129,21 @@
           <option value="medium">Medium</option>
           <option value="dark">Dark</option>
         </select>
-        <!-- NEW: Show Help button (appears when banner is hidden) -->
-        <button id="show-banner" class="btn focus-ring text-sm hidden" aria-label="Show help banner">
-          Show Help
-        </button>
+        <button id="show-banner" class="btn focus-ring text-sm hidden" aria-label="Show help banner">Show Help</button>
       </div>
     </div>
   </header>
 
-  <!-- HOW-TO BANNER -->
+  <!-- HOW-TO BANNER (non-sticky for simpler mobile flow) -->
   <section id="howto-banner" class="surface border-b" style="border-color: var(--border);">
     <div class="max-w-7xl mx-auto px-4 py-3">
       <div class="flex items-start justify-between gap-4">
         <nav class="flex flex-wrap gap-2" role="tablist" aria-label="How to">
-          <button class="tab-btn px-3 py-1 rounded-lg text-sm font-medium border" role="tab" aria-selected="true" aria-controls="tab-overview" id="tabbtn-overview">Overview</button>
-          <button class="tab-btn px-3 py-1 rounded-lg text-sm font-medium border" role="tab" aria-selected="false" aria-controls="tab-howto" id="tabbtn-howto">How to use</button>
-          <button class="tab-btn px-3 py-1 rounded-lg text-sm font-medium border" role="tab" aria-selected="false" aria-controls="tab-assumptions" id="tabbtn-assumptions">Assumptions</button>
-          <button class="tab-btn px-3 py-1 rounded-lg text-sm font-medium border" role="tab" aria-selected="false" aria-controls="tab-faq" id="tabbtn-faq">FAQ</button>
-          <button class="tab-btn px-3 py-1 rounded-lg text-sm font-medium border" role="tab" aria-selected="false" aria-controls="tab-tips" id="tabbtn-tips">Tips</button>
+          <button class="tab-btn" role="tab" aria-selected="true" aria-controls="tab-overview" id="tabbtn-overview">Overview</button>
+          <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-howto" id="tabbtn-howto">How to use</button>
+          <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-assumptions" id="tabbtn-assumptions">Assumptions</button>
+          <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-faq" id="tabbtn-faq">FAQ</button>
+          <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-tips" id="tabbtn-tips">Tips</button>
         </nav>
         <div class="flex items-center gap-2">
           <button id="dismiss-banner" class="btn focus-ring text-sm" aria-label="Hide help banner">Hide</button>
@@ -193,14 +193,15 @@
   </section>
 
   <!-- PAGE CONTENT -->
-  <main class="max-w-7xl mx-auto p-6">
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6"
+        style="padding-top: var(--chrome, 0px);">
     {% block content %}{% endblock %}
   </main>
 
   <!-- Site scripts -->
-  <script src="{{ url_for('static', filename='charts.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='charts.js') }}"></script>
   <script>
-    // THEME SWITCHER
+    // === THEME SWITCHER ===
     const root = document.documentElement;
     const select = document.getElementById('theme-select');
     const saved = localStorage.getItem('theme') || 'light';
@@ -209,13 +210,13 @@
     select.addEventListener('change', () => {
       root.setAttribute('data-theme', select.value);
       localStorage.setItem('theme', select.value);
-      // Ask charts (if loaded) to re-theme
+      // re-init charts (if provided by charts.js)
       if (window.__lastChartsPayload && window.initCharts) {
         window.initCharts(window.__lastChartsPayload);
       }
     });
 
-    // TABS (banner)
+    // === TABS (banner) ===
     const tabButtons = ['overview','howto','assumptions','faq','tips'].map(k => document.getElementById(`tabbtn-${k}`));
     const panels = ['tab-overview','tab-howto','tab-assumptions','tab-faq','tab-tips'].map(id => document.getElementById(id));
     function activate(idx){
@@ -229,65 +230,60 @@
     tabButtons.forEach((btn,idx)=> btn.addEventListener('click', ()=> activate(idx)));
     activate(0);
 
-    // ----- BANNER HIDE/SHOW + CHROME OFFSET -----
+    // === BANNER HIDE/SHOW ===
     const banner = document.getElementById('howto-banner');
     const dismissBtn = document.getElementById('dismiss-banner');
     const showBtn = document.getElementById('show-banner');
 
     function setChromeOffset(){
+      // Only account for sticky header height; banner is non-sticky.
       const header = document.querySelector('header');
-      const h = (header?.offsetHeight || 0) + (banner && !banner.classList.contains('banner-hidden') ? banner.offsetHeight : 0);
+      const h = header?.offsetHeight || 0;
       document.documentElement.style.setProperty('--chrome', h + 'px');
     }
-
     function hideBanner(){
       banner.classList.add('banner-hidden');
       localStorage.setItem('hideHowto','1');
       showBtn.classList.remove('hidden');
-      setChromeOffset();
     }
     function showBanner(){
       banner.classList.remove('banner-hidden');
       localStorage.setItem('hideHowto','0');
       showBtn.classList.add('hidden');
-      setChromeOffset();
     }
+    if (localStorage.getItem('hideHowto') === '1') { hideBanner(); } else { showBanner(); }
 
-    // Initial state
-    if (localStorage.getItem('hideHowto') === '1') {
-      hideBanner();
-    } else {
-      showBanner();
-    }
-
-    // Events
     dismissBtn.addEventListener('click', hideBanner);
     showBtn.addEventListener('click', showBanner);
+
     window.addEventListener('load', setChromeOffset);
     window.addEventListener('resize', setChromeOffset);
     document.body.addEventListener('htmx:afterSwap', setChromeOffset);
 
-    // HTMX + charts payload
-    htmx.config.allowScriptTags = true;
-    document.body.addEventListener('htmx:afterSwap', (e) => {
-      if (e.detail?.target?.id === 'results') {
-        const payloadEl = document.getElementById('charts-payload');
-        if (payloadEl) {
-          try {
-            const data = JSON.parse(payloadEl.textContent);
-            window.__lastChartsPayload = data;     // keep for theme changes
-            if (window.initCharts) window.initCharts(data);
-          } catch (err) {
-            console.error('Charts payload parse error:', err);
+    // === HTMX + charts payload ===
+    if (window.htmx) {
+      htmx.config.allowScriptTags = true;
+      document.body.addEventListener('htmx:afterSwap', (e) => {
+        if (e.detail?.target?.id === 'results') {
+          const payloadEl = document.getElementById('charts-payload');
+          if (payloadEl) {
+            try {
+              const data = JSON.parse(payloadEl.textContent);
+              window.__lastChartsPayload = data;
+              if (window.initCharts) window.initCharts(data);
+              // Nudge all charts to resize to their .chart-box containers
+              if (window.Chart && Chart.instances) {
+                Object.values(Chart.instances).forEach(inst => inst.resize());
+              }
+            } catch (err) { console.error('Charts payload parse error:', err); }
           }
         }
-      }
-    });
-    window.addEventListener('DOMContentLoaded', () => {
-      const results = document.getElementById('results');
-      if (results) htmx.trigger(results, 'load');
-      setChromeOffset();
-    });
+      });
+      window.addEventListener('DOMContentLoaded', () => {
+        const results = document.getElementById('results');
+        if (results) htmx.trigger(results, 'load');
+      });
+    }
   </script>
 </body>
 </html>

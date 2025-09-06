@@ -169,8 +169,22 @@
             </select>
           </label>
 
-          <button class="btn btn-primary"
-                  form="mortgage-form" formaction="/pdf" formmethod="post" target="_blank">
+          <!-- PDF download: bypass HTMX -->
+          <button type="button" class="btn btn-primary"
+            onclick="
+              const f = document.getElementById('mortgage-form');
+              if (!f) return;
+              const oldAction = f.getAttribute('action') || '';
+              const oldTarget = f.getAttribute('target') || '';
+              const oldMethod = f.getAttribute('method') || 'post';
+              f.setAttribute('action','/pdf');
+              f.setAttribute('method','post');
+              f.setAttribute('target','_blank');
+              HTMLFormElement.prototype.submit.call(f);
+              if (oldAction) f.setAttribute('action', oldAction); else f.removeAttribute('action');
+              if (oldTarget) f.setAttribute('target', oldTarget); else f.removeAttribute('target');
+              f.setAttribute('method', oldMethod);
+            ">
             Download Report (PDF)
           </button>
         </div>

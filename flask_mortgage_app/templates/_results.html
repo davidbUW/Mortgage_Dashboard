@@ -44,44 +44,48 @@
 <!-- Chart Tabs -->
 <div class="card rounded-xl p-4 mb-6">
   <div class="flex border-b" style="border-color: var(--border)">
-    <!-- Always show Payment -->
     <button class="tab-btn px-4 py-2 font-medium border-b-2 tab-active"
             style="border-color: var(--primary); color: var(--primary)"
             data-target="tab-payment">Payment Breakdown</button>
 
     {% if rent_buy_full %}
-    <button class="tab-btn px-4 py-2 muted"
-            data-target="tab-rentbuyfull">Rent vs Buy (Full)</button>
+    <button class="tab-btn px-4 py-2 muted" data-target="tab-rentbuyfull">Rent vs Buy (Full)</button>
     {% endif %}
 
     {% if resale_enable and rent_buy %}
-    <button class="tab-btn px-4 py-2 muted"
-            data-target="tab-rentbuy">Rent vs Buy (Resale)</button>
+    <button class="tab-btn px-4 py-2 muted" data-target="tab-rentbuy">Rent vs Buy (Resale)</button>
     {% endif %}
 
-    <button class="tab-btn px-4 py-2 muted"
-            data-target="tab-cumint">Cumulative Interest</button>
+    <button class="tab-btn px-4 py-2 muted" data-target="tab-cumint">Cumulative Interest</button>
   </div>
 
-  <!-- Tab content panes -->
+  <!-- Tab content panes (each canvas wrapped in .chart-box for responsive height) -->
   <div id="tab-payment" class="tab-content block mt-4">
-    <canvas id="chartPayment" style="min-height: 400px;"></canvas>
+    <div class="chart-box">
+      <canvas id="chartPayment"></canvas>
+    </div>
   </div>
 
   {% if rent_buy_full %}
   <div id="tab-rentbuyfull" class="tab-content hidden mt-4">
-    <canvas id="chartRentBuyFull" style="min-height: 400px;"></canvas>
+    <div class="chart-box">
+      <canvas id="chartRentBuyFull"></canvas>
+    </div>
   </div>
   {% endif %}
 
   {% if resale_enable and rent_buy %}
   <div id="tab-rentbuy" class="tab-content hidden mt-4">
-    <canvas id="chartRentBuy" style="min-height: 400px;"></canvas>
+    <div class="chart-box">
+      <canvas id="chartRentBuy"></canvas>
+    </div>
   </div>
   {% endif %}
 
   <div id="tab-cumint" class="tab-content hidden mt-4">
-    <canvas id="chartCumInterest" style="min-height: 400px;"></canvas>
+    <div class="chart-box">
+      <canvas id="chartCumInterest"></canvas>
+    </div>
   </div>
 </div>
 
@@ -106,6 +110,10 @@
         btn.style.color = primary;
         btn.classList.remove('muted');
       }
+      // ensure charts fit the newly visible pane
+      if (window.Chart && Chart.instances) {
+        Object.values(Chart.instances).forEach(inst => inst.resize());
+      }
     });
   });
 </script>
@@ -119,7 +127,6 @@
 
   <!-- Pager controls -->
   <div class="flex items-center gap-2 mb-3">
-    <!-- Prev -->
     <button
       class="btn"
       hx-post="/results"
@@ -130,7 +137,6 @@
       {% if page <= 1 %}disabled{% endif %}
     >&larr; Prev</button>
 
-    <!-- Next -->
     <button
       class="btn"
       hx-post="/results"
@@ -141,7 +147,6 @@
       {% if page >= total_pages %}disabled{% endif %}
     >Next &rarr;</button>
 
-    <!-- Jump to page -->
     <label class="ml-3 text-sm muted">Jump to:
       <input type="number" min="1" max="{{ total_pages }}" value="{{ page }}"
              class="btn w-24 mt-0"
@@ -187,8 +192,22 @@
   </div>
 
   <div class="mt-4">
-    <button class="btn btn-primary"
-            form="mortgage-form" formaction="/pdf" formmethod="post" target="_blank">
+    <!-- PDF download: bypass HTMX -->
+    <button type="button" class="btn btn-primary"
+      onclick="
+        const f = document.getElementById('mortgage-form');
+        if (!f) return;
+        const oldAction = f.getAttribute('action') || '';
+        const oldTarget = f.getAttribute('target') || '';
+        const oldMethod = f.getAttribute('method') || 'post';
+        f.setAttribute('action','/pdf');
+        f.setAttribute('method','post');
+        f.setAttribute('target','_blank');
+        HTMLFormElement.prototype.submit.call(f);
+        if (oldAction) f.setAttribute('action', oldAction); else f.removeAttribute('action');
+        if (oldTarget) f.setAttribute('target', oldTarget); else f.removeAttribute('target');
+        f.setAttribute('method', oldMethod);
+      ">
       Download Report (PDF)
     </button>
   </div>
@@ -215,4 +234,23 @@
     "data": amort_full | map(attribute='cumulative_interest') | list
   }
 } | tojson }}
+</script>
+
+<!-- Safety-net initializer so charts render even if timing differs -->
+<script>
+  (function () {
+    const payloadEl = document.getElementById('charts-payload');
+    if (payloadEl && window.initCharts) {
+      try {
+        const data = JSON.parse(payloadEl.textContent);
+        window.__lastChartsPayload = data;
+        window.initCharts(data);
+      } catch (e) { console.error('Charts payload parse error:', e); }
+    }
+    requestAnimationFrame(() => {
+      if (window.Chart && Chart.instances) {
+        Object.values(Chart.instances).forEach(c => c.resize());
+      }
+    });
+  })();
 </script>
