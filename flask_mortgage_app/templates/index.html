@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 
-<!-- Two-panel layout: inputs (left, scrollable) + results (right, sticky) -->
-<section class="grid grid-cols-1 lg:grid-cols-2 gap-6"
-         style="height: calc(100vh - var(--chrome, 0px));">
+<!-- Mobile: inputs show first in normal flow.
+     Desktop (lg+): two columns, sticky results on the right. -->
+<section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-  <!-- LEFT: INPUTS (scrollable column) -->
-  <div class="overflow-y-auto pr-2">
+  <!-- LEFT: INPUTS -->
+  <div id="inputs" class="overflow-visible lg:overflow-y-auto lg:pr-2" style="scroll-margin-top: 84px;">
     <form id="mortgage-form"
           class="space-y-6 pb-8"
           hx-post="/results"
@@ -191,7 +191,6 @@
       </div>
     </form>
 
-    <!-- inputs helpers -->
     <script>
       // Down payment slider <-> dollars sync
       const priceEl = document.getElementById('price');
@@ -222,9 +221,10 @@
     </script>
   </div>
 
-  <!-- RIGHT: RESULTS (sticky so charts always show) -->
+  <!-- RIGHT: RESULTS -->
+  <!-- Sticky ONLY on large screens so it doesn't push inputs off-screen on phones -->
   <div class="relative">
-    <div class="sticky top-4">
+    <div class="lg:sticky lg:top-4">
       <div id="results"
            hx-post="/results"
            hx-target="#results"
@@ -234,4 +234,10 @@
     </div>
   </div>
 </section>
+
+<!-- Optional: "Skip to inputs" link for deep links -->
+<a href="#inputs" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:bg-[var(--card)] focus:px-3 focus:py-2 focus:rounded">
+  Skip to inputs
+</a>
+
 {% endblock %}
