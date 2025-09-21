@@ -1,8 +1,32 @@
 {% extends "base.html" %}
 {% block content %}
 
-<!-- Mobile: inputs show first in normal flow.
-     Desktop (lg+): two columns, sticky results on the right. -->
+<!-- Sticky Summary (cards) -->
+<section id="summary-bar"
+         class="surface border-b sticky z-40"
+         style="top: var(--chrome, 56px); border-color: var(--border);">
+  <div class="max-w-7xl mx-auto px-4 py-3">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="card rounded-2xl p-4">
+        <div class="text-xs uppercase muted">Monthly Payment (P&I)</div>
+        <div class="text-2xl font-semibold"><span id="pi-payment">$0</span></div>
+      </div>
+      <div class="card rounded-2xl p-4">
+        <div class="text-xs uppercase muted">All-in Monthly</div>
+        <div class="text-2xl font-semibold"><span id="all-in">$0</span></div>
+      </div>
+      <div class="card rounded-2xl p-4">
+        <div class="text-xs uppercase muted">LTV</div>
+        <div class="text-2xl font-semibold"><span id="ltv">—</span></div>
+      </div>
+      <div class="card rounded-2xl p-4">
+        <div class="text-xs uppercase muted">APR</div>
+        <div class="text-2xl font-semibold"><span id="apr">—</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
   <!-- LEFT: INPUTS -->
@@ -169,7 +193,7 @@
             </select>
           </label>
 
-          <!-- PDF download: bypass HTMX -->
+          <!-- PDF download opens new tab -->
           <button type="button" class="btn btn-primary"
             onclick="
               const f = document.getElementById('mortgage-form');
@@ -214,15 +238,14 @@
       dollarsEl.addEventListener('input', syncFromDollars);
       syncFromPct();
 
-      // Reset amortization paging to page 1 on any input change
+      // Reset amortization paging to page 1 on any input change (if you paginate in _results.html)
       document.getElementById('mortgage-form').addEventListener('change', () => {
         const pageEl = document.getElementById('page'); if (pageEl) pageEl.value = 1;
       });
     </script>
   </div>
 
-  <!-- RIGHT: RESULTS -->
-  <!-- Sticky ONLY on large screens so it doesn't push inputs off-screen on phones -->
+  <!-- RIGHT: RESULTS (sticky on desktop) -->
   <div class="relative">
     <div class="lg:sticky lg:top-4">
       <div id="results"
@@ -235,7 +258,6 @@
   </div>
 </section>
 
-<!-- Optional: "Skip to inputs" link for deep links -->
 <a href="#inputs" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:bg-[var(--card)] focus:px-3 focus:py-2 focus:rounded">
   Skip to inputs
 </a>

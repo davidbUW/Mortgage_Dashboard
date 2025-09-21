@@ -254,3 +254,21 @@
     });
   })();
 </script>
+
+<!-- OOB updates for the sticky summary -->
+<span id="pi-payment" hx-swap-oob="innerHTML">
+  ${{ "{:,.0f}".format(metrics.monthly_pi) }}
+</span>
+
+<span id="all-in" hx-swap-oob="innerHTML">
+  ${{ "{:,.0f}".format(metrics.first_month_total) }}
+</span>
+
+<span id="ltv" hx-swap-oob="innerHTML">
+  {{ (principal / price * 100) | round(0) if price else 0 }}%
+</span>
+
+<span id="apr" hx-swap-oob="innerHTML">
+  {{ rate | round(2) }}%
+</span>
+
